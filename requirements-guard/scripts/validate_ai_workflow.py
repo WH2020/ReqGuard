@@ -31,7 +31,8 @@ VALID_PHASES = {
 }
 REQ_RE = re.compile(r"\bREQ-\d{3,}\b")
 MOD_RE = re.compile(r"\bMOD-\d{3,}\b")
-SECTION_RE = re.compile(r"^##\s+((?:REQ|MOD)-\d{3,})\b(.*)$", re.MULTILINE)
+EXP_RE = re.compile(r"\bEXP-[A-Z0-9-]+\b")
+SECTION_RE = re.compile(r"^##\s+((?:REQ-\d{3,})|(?:MOD-\d{3,})|(?:EXP-[A-Z0-9-]+))\b(.*)$", re.MULTILINE)
 
 
 def find_docs_dir(root: Path) -> Path | None:
@@ -120,6 +121,7 @@ def validate(root: Path) -> tuple[list[str], list[str], Path | None]:
     req_text = read_text(docs / "requirements.md")
     mod_text = read_text(docs / "modules.md")
     trace_text = read_text(docs / "traceability.md")
+    expert_text = read_text(docs / "expert_regions.md")
 
     if not req_text:
         errors.append("missing requirements.md")
@@ -137,6 +139,7 @@ def validate(root: Path) -> tuple[list[str], list[str], Path | None]:
 
     req_blocks = section_blocks(req_text, "REQ")
     mod_blocks = section_blocks(mod_text, "MOD")
+    expert_blocks = section_blocks(expert_text, "EXP")
 
     for req_id, block in req_blocks.items():
         status = (field_value(block, "Status") or "").lower()
@@ -161,6 +164,30 @@ def validate(root: Path) -> tuple[list[str], list[str], Path | None]:
         if not re.search(r"Non-responsibilities:\s*(?:\n\s*-|\S)", block):
             warnings.append(f"{mod_id} should document Non-responsibilities")
 
+    active_expert_regions = set(state.get("active_expert_regions", [])) if state else set()
+    if active_expert_regions and not expert_blocks:
+        errors.append("state.json active_expert_regions is set but expert_regions.md is missing or empty")
+    missing_active_regions = sorted(active_expert_regions - set(expert_blocks))
+    if missing_active_regions:
+        errors.append(f"state.json active_expert_regions references undefined regions: {', '.join(missing_active_regions)}")
+
+    for region_id, block in expert_blocks.items():
+        profile = field_value(block, "Profile")
+        if not profile:
+            errors.append(f"{region_id} missing Profile")
+        elif active_profiles and profile not in active_profiles:
+            warnings.append(f"{region_id} profile {profile} is not in active_profiles")
+        if active_expert_regions and region_id not in active_expert_regions:
+            warnings.append(f"{region_id} is defined but not listed in active_expert_regions")
+        owned_reqs = set(REQ_RE.findall(block))
+        owned_mods = set(MOD_RE.findall(block))
+        for req_id in sorted(owned_reqs):
+            if req_id not in req_blocks:
+                errors.append(f"{region_id} references unknown requirement {req_id}")
+        for mod_id in sorted(owned_mods):
+            if mod_id not in mod_blocks:
+                errors.append(f"{region_id} references unknown module {mod_id}")
+
     if trace_text:
         for req_id in sorted(set(REQ_RE.findall(trace_text))):
             if req_id not in req_blocks:
@@ -179,6 +206,10 @@ def validate(root: Path) -> tuple[list[str], list[str], Path | None]:
                 warnings.append("task_context.json generated_by should be match_task_context.py")
             if "profile_matches" not in task_context:
                 errors.append("task_context.json missing profile_matches")
+            if expert_blocks and "expert_region_matches" not in task_context:
+                errors.append("task_context.json missing expert_region_matches")
+            if "confidence" not in task_context:
+                warnings.append("task_context.json should include confidence")
             if task_context.get("blocking") is True:
                 warnings.append("task_context.json blocking=true; implementation should be blocked")
 

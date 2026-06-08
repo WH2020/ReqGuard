@@ -1,11 +1,11 @@
 ---
 name: requirements-guard
-description: Requirements-gated AI engineering workflow for AI-assisted software, firmware, and algorithm development. Use when Codex must work from confirmed requirements, maintain module and traceability documents, align each task against requirement/module/domain-profile networks before implementation, control requirement changes, or distinguish hook-enforced rules from best-effort agent rules. Triggers include ReqGuard, requirements guard, requirement-driven development, spec-driven development, task alignment gate, traceability matrix, domain profiles, hook enforcement, or requests to prevent AI coding drift.
+description: Requirements-gated AI engineering workflow for AI-assisted software, firmware, and algorithm development. Use when Codex must work from confirmed requirements, maintain module and traceability documents, align each task against requirement/module/domain-profile/expert-region networks before implementation, report confidence, detect out-of-distribution tasks, control requirement changes, or distinguish hook-enforced rules from best-effort agent rules. Triggers include ReqGuard, requirements guard, requirement-driven development, spec-driven development, task alignment gate, traceability matrix, domain profiles, expert regions, OOD detection, hook enforcement, or requests to prevent AI coding drift.
 ---
 
 # Requirements Guard
 
-ReqGuard is a requirements-gated engineering workflow for AI agents. Use it to keep work aligned with confirmed requirements, module boundaries, traceability evidence, domain profiles, and hook-aware enforcement.
+ReqGuard is a requirements-gated engineering workflow for AI agents. Use it to keep work aligned with confirmed requirements, expert regions, module boundaries, traceability evidence, domain profiles, and hook-aware enforcement.
 
 ## Reliability boundary
 
@@ -32,6 +32,7 @@ docs/reqguard/
   progress.md
   state.json
   task_context.json
+  expert_regions.md
   changes/
 scripts/
   validate_ai_workflow.py
@@ -43,15 +44,16 @@ scripts/
 1. Load project instructions and ReqGuard state.
 2. Read `state.json`, `requirements.md`, `modules.md`, `traceability.md`, and `progress.md` if present.
 3. Load active domain profiles from `state.json.active_profiles`.
-4. Before implementation, run task alignment:
+4. Load expert regions from `expert_regions.md` if present.
+5. Before implementation, run task alignment:
    - Use `scripts/match_task_context.py` if available in the project.
    - Otherwise use this skill's bundled `scripts/match_task_context.py`.
-5. State the task in one sentence.
-6. Report profile, requirement, and module matches.
-7. Implement only against confirmed requirements.
-8. For requirement semantic changes, create a change proposal and wait for user confirmation.
-9. After meaningful code, interface, test, or design changes, update module and traceability docs.
-10. Run validation:
+6. State the task in one sentence.
+7. Report profile, expert region, requirement, and module matches.
+8. Implement only against confirmed requirements.
+9. For requirement semantic changes, create a change proposal and wait for user confirmation.
+10. After meaningful code, interface, test, or design changes, update module and traceability docs.
+11. Run validation:
    - Use project `scripts/validate_ai_workflow.py` if available.
    - Otherwise use this skill's bundled `scripts/validate_ai_workflow.py`.
 
@@ -64,8 +66,12 @@ Task: one-sentence summary.
 
 Matches:
 - Profile: embedded-firmware, score=0.93
+- Expert region: EXP-FW-UART UART DMA receive path, score=0.88
 - Requirement: REQ-001 UART DMA receive, score=0.86, status=confirmed
 - Module: MOD-001 UART Driver, score=0.81
+
+Confidence:
+- overall=0.82, evidence_quality=medium
 
 Decision:
 - proceed / clarify / create requirement / create change proposal / blocked
@@ -76,6 +82,8 @@ Boundary:
 ```
 
 If `task_context.json` says `blocking=true`, do not implement. Explain the blocking reason and ask for user input or requirement confirmation.
+
+If task alignment marks `out_of_distribution_task`, do not implement. Create a draft requirement or expert region proposal.
 
 ## Domain profiles
 
@@ -107,6 +115,7 @@ Module and traceability changes:
 
 - Read `references/templates.md` for starter document shapes.
 - Read `references/task-alignment.md` for scoring fields and thresholds.
+- Read `references/expert-regions.md` for expert region routing, confidence, OOD detection, and execution protocols.
 - Read `references/domain-profiles.md` for software, firmware, and algorithm profile fields.
 - Read `references/enforcement-boundary.md` for hook/CI vs best-effort boundaries.
 - Read `references/technical-detail-archiving.md` before deciding whether to document implementation details.

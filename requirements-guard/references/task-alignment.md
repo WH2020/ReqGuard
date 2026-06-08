@@ -5,10 +5,11 @@ Task alignment prevents the agent from implementing outside confirmed requiremen
 ## Match order
 
 1. Match domain profile.
-2. Match confirmed requirements.
-3. Match modules.
-4. Check traceability and test evidence.
-5. Decide: proceed, clarify, create requirement, create change proposal, or block.
+2. Match expert region if `expert_regions.md` exists.
+3. Match confirmed requirements.
+4. Match modules.
+5. Check traceability and test evidence.
+6. Decide: proceed, clarify, create requirement, create change proposal, or block.
 
 ## Scoring
 
@@ -37,8 +38,10 @@ Always block implementation when:
 
 - Best requirement is draft, changed, deprecated, or missing.
 - No active profile matches.
+- No active expert region matches when expert regions are defined.
 - Requirement and module profiles conflict without user-confirmed cross-domain scope.
 - `task_context.json.blocking=true`.
+- `out_of_distribution_task` is present.
 
 ## Required agent preflight
 
@@ -47,8 +50,13 @@ Task: one-sentence summary.
 
 Matches:
 - Profile: ...
+- Expert region: ...
 - Requirement: ...
 - Module: ...
+
+Confidence:
+- overall=...
+- evidence_quality=...
 
 Decision:
 - ...
@@ -56,4 +64,22 @@ Decision:
 Boundary:
 - This task changes ...
 - This task does not change ...
+```
+
+## Execution protocol
+
+For implementation tasks, add:
+
+```markdown
+## Execution Protocol
+
+- Target profile:
+- Target expert region:
+- Target requirement:
+- Target module:
+- Allowed files:
+- Forbidden changes:
+- Required tests:
+- Validation evidence:
+- Rollback risk:
 ```

@@ -40,7 +40,8 @@ PROFILE_KEYWORDS = {
 
 REQ_RE = re.compile(r"\bREQ-\d{3,}\b")
 MOD_RE = re.compile(r"\bMOD-\d{3,}\b")
-SECTION_RE = re.compile(r"^##\s+((?:REQ|MOD)-\d{3,})\b(.*)$", re.MULTILINE)
+EXP_RE = re.compile(r"\bEXP-[A-Z0-9-]+\b")
+SECTION_RE = re.compile(r"^##\s+((?:REQ-\d{3,})|(?:MOD-\d{3,})|(?:EXP-[A-Z0-9-]+))\b(.*)$", re.MULTILINE)
 
 
 def find_docs_dir(root: Path) -> Path | None:
@@ -217,15 +218,52 @@ def top_matches(task: str, blocks: dict[str, str], active_profiles: list[str], l
     return sorted(matches, key=lambda item: item["score"], reverse=True)[:limit]
 
 
-def decision(requirements: list[dict], modules: list[dict], profiles: list[dict]) -> tuple[str, bool, str, list[dict]]:
+def evidence_quality(requirements: list[dict], modules: list[dict], regions: list[dict], profiles: list[dict], has_regions: bool) -> str:
+    profile_score_value = profiles[0]["score"] if profiles else 0.0
+    region_score_value = regions[0]["score"] if regions else (1.0 if not has_regions else 0.0)
+    req_score_value = requirements[0]["score"] if requirements else 0.0
+    mod_score_value = modules[0]["score"] if modules else 0.0
+    if profile_score_value >= 0.75 and region_score_value >= 0.75 and req_score_value >= 0.75 and mod_score_value >= 0.75:
+        return "high"
+    if profile_score_value >= 0.5 and req_score_value >= 0.5 and mod_score_value >= 0.5:
+        return "medium"
+    return "low"
+
+
+def confidence(requirements: list[dict], modules: list[dict], regions: list[dict], profiles: list[dict], has_regions: bool) -> dict:
+    profile_confidence = profiles[0]["score"] if profiles else 0.0
+    expert_region_confidence = regions[0]["score"] if regions else (1.0 if not has_regions else 0.0)
+    requirement_confidence = requirements[0]["score"] if requirements else 0.0
+    module_confidence = modules[0]["score"] if modules else 0.0
+    components = [profile_confidence, requirement_confidence, module_confidence]
+    if has_regions:
+        components.append(expert_region_confidence)
+    overall = sum(components) / len(components) if components else 0.0
+    return {
+        "overall": round(overall, 4),
+        "profile_confidence": round(profile_confidence, 4),
+        "expert_region_confidence": round(expert_region_confidence, 4),
+        "requirement_confidence": round(requirement_confidence, 4),
+        "module_confidence": round(module_confidence, 4),
+        "evidence_quality": evidence_quality(requirements, modules, regions, profiles, has_regions),
+    }
+
+
+def decision(requirements: list[dict], modules: list[dict], regions: list[dict], profiles: list[dict], has_regions: bool) -> tuple[str, bool, str, list[dict]]:
     risks: list[dict] = []
     best_profile = profiles[0] if profiles else None
+    best_region = regions[0] if regions else None
     best_req = requirements[0] if requirements else None
     best_mod = modules[0] if modules else None
 
     if not best_profile or best_profile["score"] < 0.5:
         risks.append({"type": "low_profile_match", "message": "No active domain profile matched the task."})
-        return "clarify", True, "No active profile match.", risks
+        risks.append({"type": "out_of_distribution_task", "message": "Task does not fit any active domain profile."})
+        return "create_requirement", True, "Task is outside active domain profiles.", risks
+
+    if has_regions and (not best_region or best_region["score"] < 0.5):
+        risks.append({"type": "out_of_distribution_task", "message": "Task does not fit any active expert region."})
+        return "create_requirement", True, "Task is outside active expert regions.", risks
 
     if not best_req:
         risks.append({"type": "missing_requirement", "message": "No requirement candidates found."})
@@ -252,6 +290,12 @@ def decision(requirements: list[dict], modules: list[dict], profiles: list[dict]
     if req_profile and mod_profile and req_profile != mod_profile:
         risks.append({"type": "profile_conflict", "message": f"{best_req['id']} profile {req_profile} differs from {best_mod['id']} profile {mod_profile}."})
         return "clarify", True, "Requirement and module profiles conflict.", risks
+
+    if has_regions and best_region:
+        region_profile = best_region.get("profile")
+        if region_profile and req_profile and region_profile != req_profile:
+            risks.append({"type": "expert_region_conflict", "message": f"{best_region['id']} profile {region_profile} differs from {best_req['id']} profile {req_profile}."})
+            return "clarify", True, "Expert region and requirement profiles conflict.", risks
 
     if best_req["score"] < 0.75 or best_mod["score"] < 0.75:
         risks.append({"type": "medium_match", "message": "Best matches are below high-confidence threshold."})
@@ -298,9 +342,17 @@ def main() -> int:
 
     req_blocks = section_blocks(read_text(docs / "requirements.md"), "REQ")
     mod_blocks = section_blocks(read_text(docs / "modules.md"), "MOD")
+    all_region_blocks = section_blocks(read_text(docs / "expert_regions.md"), "EXP")
+    active_regions = set(state.get("active_expert_regions", []))
+    region_blocks = all_region_blocks
+    if active_regions:
+        region_blocks = {key: value for key, value in all_region_blocks.items() if key in active_regions}
+    has_regions = bool(all_region_blocks) or bool(active_regions)
+    region_matches = top_matches(task, region_blocks, active_profiles, args.limit) if has_regions else []
     req_matches = top_matches(task, req_blocks, active_profiles, args.limit)
     mod_matches = top_matches(task, mod_blocks, active_profiles, args.limit)
-    hint, blocking, reason, risks = decision(req_matches, mod_matches, profile_matches)
+    hint, blocking, reason, risks = decision(req_matches, mod_matches, region_matches, profile_matches, has_regions)
+    confidence_result = confidence(req_matches, mod_matches, region_matches, profile_matches, has_regions)
 
     generated_at = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
     result = {
@@ -311,8 +363,10 @@ def main() -> int:
         "raw_user_task": task,
         "task_summary": summarize_task(task),
         "profile_matches": profile_matches[: args.limit],
+        "expert_region_matches": region_matches,
         "requirement_matches": req_matches,
         "module_matches": mod_matches,
+        "confidence": confidence_result,
         "risk_flags": risks,
         "decision_hint": hint,
         "required_agent_action": "state_task_summary_and_boundary",

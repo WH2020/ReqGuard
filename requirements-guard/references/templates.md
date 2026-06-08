@@ -9,6 +9,7 @@ Use these as starter shapes. Add profile-specific fields from `domain-profiles.m
   "workflow_version": "0.1",
   "project_profile": "embedded-firmware",
   "active_profiles": ["embedded-firmware"],
+  "active_expert_regions": ["EXP-FW-UART"],
   "phase": "requirements_draft",
   "requirements_version": "REQ-v1",
   "modules_version": "MOD-v1",
@@ -96,6 +97,24 @@ Use these as starter shapes. Add profile-specific fields from `domain-profiles.m
 | REQ-001 | embedded-firmware | MOD-001 | `drivers/uart_driver.c` | TEST-001 | test log | partial | |
 ```
 
+## expert_regions.md
+
+```markdown
+# Expert Regions
+
+## EXP-FW-UART UART DMA receive path
+
+- Profile: embedded-firmware
+- Scope: UART DMA receive, circular buffer, ISR index update, overflow handling
+- Owned requirements: REQ-001
+- Owned modules: MOD-001
+- Keywords: uart, dma, isr, buffer, overflow, crc
+- Out of scope:
+  - Business protocol parsing
+- Required tests:
+  - TEST-001
+```
+
 ## task_context.json
 
 ```json
@@ -106,8 +125,17 @@ Use these as starter shapes. Add profile-specific fields from `domain-profiles.m
   "raw_user_task": "",
   "task_summary": "",
   "profile_matches": [],
+  "expert_region_matches": [],
   "requirement_matches": [],
   "module_matches": [],
+  "confidence": {
+    "overall": 0.0,
+    "profile_confidence": 0.0,
+    "expert_region_confidence": 0.0,
+    "requirement_confidence": 0.0,
+    "module_confidence": 0.0,
+    "evidence_quality": "low"
+  },
   "risk_flags": [],
   "decision_hint": "clarify",
   "blocking": true,
