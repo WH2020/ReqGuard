@@ -1,0 +1,4 @@
+interface:
+  display_name: "ReqGuard"
+  short_description: "Requirements-gated AI engineering workflow"
+  default_prompt: "Use ReqGuard to control AI-assisted development with confirmed requirements, task alignment, traceability, domain profiles, and hook-aware enforcement."
