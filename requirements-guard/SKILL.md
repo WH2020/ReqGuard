@@ -19,6 +19,15 @@ Do not overstate the workflow's strictness.
 
 Read `references/enforcement-boundary.md` when the task involves hooks, CI, state trust, or claims of strict enforcement.
 
+## Hard gates
+
+- No implementation without a generated `task_context.json`.
+- No implementation when `task_context.json.blocking=true`.
+- No feature work without a confirmed requirement match.
+- No silent edits to confirmed requirements; create a change proposal first.
+- No completion claim without workflow validation, project verification, traceability update, and recorded evidence.
+- No repeated guessing: for bugs or failed verification, switch to the debugging process before changing code.
+
 ## Project layout
 
 Prefer `docs/reqguard/`; also accept existing `docs/ai-workflow/` projects.
@@ -53,7 +62,7 @@ scripts/
 8. Implement only against confirmed requirements.
 9. For requirement semantic changes, create a change proposal and wait for user confirmation.
 10. After meaningful code, interface, test, or design changes, update module and traceability docs.
-11. Run validation:
+11. Run validation and completion gate checks:
    - Use project `scripts/validate_ai_workflow.py` if available.
    - Otherwise use this skill's bundled `scripts/validate_ai_workflow.py`.
 
@@ -72,6 +81,10 @@ Matches:
 
 Confidence:
 - overall=0.82, evidence_quality=medium
+
+Process:
+- required_process=implementation
+- required_verification=workflow validation, project tests, traceability evidence
 
 Decision:
 - proceed / clarify / create requirement / create change proposal / blocked
@@ -116,6 +129,7 @@ Module and traceability changes:
 - Read `references/templates.md` for starter document shapes.
 - Read `references/task-alignment.md` for scoring fields and thresholds.
 - Read `references/expert-regions.md` for expert region routing, confidence, OOD detection, and execution protocols.
+- Read `references/superpowers-integration.md` for TDD, debugging, completion verification, and review discipline.
 - Read `references/domain-profiles.md` for software, firmware, and algorithm profile fields.
 - Read `references/enforcement-boundary.md` for hook/CI vs best-effort boundaries.
 - Read `references/technical-detail-archiving.md` before deciding whether to document implementation details.

@@ -58,6 +58,10 @@ Confidence:
 - overall=...
 - evidence_quality=...
 
+Process:
+- required_process=...
+- required_verification=...
+
 Decision:
 - ...
 
@@ -65,6 +69,18 @@ Boundary:
 - This task changes ...
 - This task does not change ...
 ```
+
+## Completion gate
+
+Before reporting completion, the task must have:
+
+- `completion_gate.task_alignment=true`
+- `completion_gate.workflow_validation=true`
+- `completion_gate.project_tests=true`
+- `completion_gate.traceability_updated=true`
+- `completion_gate.evidence_recorded=true`
+
+If any item is false, report partial progress and missing evidence instead of claiming completion.
 
 ## Execution protocol
 

@@ -14,6 +14,14 @@ from pathlib import Path
 
 
 VALID_PROFILES = {"software-app", "embedded-firmware", "algorithm-model", "multi-domain"}
+VALID_PROCESSES = {"implementation", "debugging", "review", "requirement_change"}
+COMPLETION_GATE_KEYS = {
+    "task_alignment",
+    "workflow_validation",
+    "project_tests",
+    "traceability_updated",
+    "evidence_recorded",
+}
 VALID_PHASES = {
     "intake",
     "requirements_draft",
@@ -210,6 +218,32 @@ def validate(root: Path) -> tuple[list[str], list[str], Path | None]:
                 errors.append("task_context.json missing expert_region_matches")
             if "confidence" not in task_context:
                 warnings.append("task_context.json should include confidence")
+            required_process = task_context.get("required_process")
+            if required_process is None:
+                warnings.append("task_context.json should include required_process")
+            elif required_process not in VALID_PROCESSES:
+                errors.append(f"task_context.json required_process is invalid: {required_process}")
+            required_verification = task_context.get("required_verification")
+            if required_verification is None:
+                warnings.append("task_context.json should include required_verification")
+            elif not isinstance(required_verification, list) or not all(isinstance(item, str) for item in required_verification):
+                errors.append("task_context.json required_verification must be a list of strings")
+            gate = task_context.get("completion_gate")
+            if gate is None:
+                warnings.append("task_context.json should include completion_gate")
+            elif not isinstance(gate, dict):
+                errors.append("task_context.json completion_gate must be an object")
+            else:
+                missing_gate_keys = sorted(COMPLETION_GATE_KEYS - set(gate))
+                if missing_gate_keys:
+                    errors.append(f"task_context.json completion_gate missing keys: {', '.join(missing_gate_keys)}")
+                non_bool_gate_keys = sorted(key for key in COMPLETION_GATE_KEYS & set(gate) if not isinstance(gate[key], bool))
+                if non_bool_gate_keys:
+                    errors.append(f"task_context.json completion_gate values must be boolean: {', '.join(non_bool_gate_keys)}")
+                if state.get("phase") == "done":
+                    incomplete_gate_keys = sorted(key for key in COMPLETION_GATE_KEYS if gate.get(key) is not True)
+                    if incomplete_gate_keys:
+                        errors.append(f"state.json phase is done but completion_gate is incomplete: {', '.join(incomplete_gate_keys)}")
             if task_context.get("blocking") is True:
                 warnings.append("task_context.json blocking=true; implementation should be blocked")
 

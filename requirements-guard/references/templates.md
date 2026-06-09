@@ -128,6 +128,12 @@ Use these as starter shapes. Add profile-specific fields from `domain-profiles.m
   "expert_region_matches": [],
   "requirement_matches": [],
   "module_matches": [],
+  "required_process": "implementation",
+  "required_verification": [
+    "workflow validation",
+    "project tests",
+    "traceability evidence"
+  ],
   "confidence": {
     "overall": 0.0,
     "profile_confidence": 0.0,
@@ -139,6 +145,13 @@ Use these as starter shapes. Add profile-specific fields from `domain-profiles.m
   "risk_flags": [],
   "decision_hint": "clarify",
   "blocking": true,
-  "reason": "No task has been matched yet."
+  "reason": "No task has been matched yet.",
+  "completion_gate": {
+    "task_alignment": false,
+    "workflow_validation": false,
+    "project_tests": false,
+    "traceability_updated": false,
+    "evidence_recorded": false
+  }
 }
 ```

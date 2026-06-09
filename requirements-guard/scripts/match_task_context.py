@@ -20,6 +20,7 @@ from pathlib import Path
 
 
 VALID_PROFILES = ("software-app", "embedded-firmware", "algorithm-model")
+VALID_PROCESSES = ("implementation", "debugging", "review", "requirement_change")
 PROFILE_KEYWORDS = {
     "software-app": {
         "ui", "api", "auth", "login", "screen", "page", "view", "android", "ios",
@@ -37,6 +38,12 @@ PROFILE_KEYWORDS = {
         "parameter", "benchmark", "inference", "validation", "numeric",
     },
 }
+DEBUGGING_KEYWORDS = {
+    "bug", "fix", "fail", "failure", "error", "crash", "exception", "regression",
+    "debug", "broken", "timeout", "latency", "performance", "jitter",
+    "mismatch", "incorrect", "unexpected", "stuck",
+}
+REVIEW_KEYWORDS = {"review", "audit", "inspect", "check", "merge", "pr", "compliance"}
 
 REQ_RE = re.compile(r"\bREQ-\d{3,}\b")
 MOD_RE = re.compile(r"\bMOD-\d{3,}\b")
@@ -309,6 +316,50 @@ def summarize_task(task: str) -> str:
     return cleaned[:180]
 
 
+def required_process(task: str, hint: str, risks: list[dict]) -> str:
+    task_tokens = tokens(task)
+    risk_types = {str(risk.get("type", "")) for risk in risks}
+    if hint in {"create_requirement", "confirm_requirement"} or "out_of_distribution_task" in risk_types:
+        return "requirement_change"
+    if task_tokens & REVIEW_KEYWORDS:
+        return "review"
+    if task_tokens & DEBUGGING_KEYWORDS:
+        return "debugging"
+    return "implementation"
+
+
+def required_verification(process: str, profile_matches: list[dict]) -> list[str]:
+    profile = profile_matches[0]["profile"] if profile_matches else ""
+    checks = ["workflow validation", "traceability evidence"]
+    if process == "debugging":
+        checks.append("root-cause evidence")
+        checks.append("regression evidence")
+    elif process == "review":
+        checks.append("review findings")
+    elif process == "requirement_change":
+        checks.append("user confirmation or draft requirement")
+    else:
+        checks.append("project tests")
+
+    if profile == "embedded-firmware":
+        checks.append("firmware timing/resource evidence")
+    elif profile == "algorithm-model":
+        checks.append("golden data or metric evidence")
+    elif profile == "software-app":
+        checks.append("build or workflow evidence")
+    return checks
+
+
+def completion_gate(blocking: bool) -> dict:
+    return {
+        "task_alignment": not blocking,
+        "workflow_validation": False,
+        "project_tests": False,
+        "traceability_updated": False,
+        "evidence_recorded": False,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate ReqGuard task_context.json.")
     parser.add_argument("--root", default=".", help="Project root. Defaults to current directory.")
@@ -353,6 +404,7 @@ def main() -> int:
     mod_matches = top_matches(task, mod_blocks, active_profiles, args.limit)
     hint, blocking, reason, risks = decision(req_matches, mod_matches, region_matches, profile_matches, has_regions)
     confidence_result = confidence(req_matches, mod_matches, region_matches, profile_matches, has_regions)
+    process = required_process(task, hint, risks)
 
     generated_at = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
     result = {
@@ -366,12 +418,15 @@ def main() -> int:
         "expert_region_matches": region_matches,
         "requirement_matches": req_matches,
         "module_matches": mod_matches,
+        "required_process": process,
+        "required_verification": required_verification(process, profile_matches),
         "confidence": confidence_result,
         "risk_flags": risks,
         "decision_hint": hint,
         "required_agent_action": "state_task_summary_and_boundary",
         "blocking": blocking,
         "reason": reason,
+        "completion_gate": completion_gate(blocking),
     }
     result["content_hash"] = hashlib.sha256(
         json.dumps(result, ensure_ascii=False, sort_keys=True).encode("utf-8")
